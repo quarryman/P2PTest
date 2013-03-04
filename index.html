@@ -13,8 +13,10 @@
                 src="http://code.jquery.com/jquery-1.5.2.js"></script>
 
 		<script src="/socket.io/socket.io.js"></script>
-		<script src="/public/socket.io.js"></script>
+		<!--<script src="/public/socket.io.js"></script>-->
 		<script type="text/javascript" src="/public/jquery.url.js"></script>
+
+        <script type="text/javascript" src="/public/filesaver.js"></script>
     </head>
     <body>
 
@@ -104,6 +106,8 @@
 		var fid = 0;
 		var files = {};
 		var downfiles = {};
+        var fileo = {};
+        var arrfile;
 		var socket = io.connect('http://${domain}');
 		//read the requested bytes
 		var reader;
@@ -131,9 +135,24 @@
 	   			});
 	   		files = {};
 			files = JSON.parse(data);
+
 			for (var file in files) {
-				console.log(file);
+				console.log(files);
 			  if (files.hasOwnProperty(file)) {
+                  arrfile = files[file][3]; //expecting 1 file only, not more
+                  /**
+                   * Object
+                        paul.mp3: Array[4]
+                        0: "paul.mp3"
+                        1: 5042722
+                        2: "audio/mp3"
+                        3: Object
+                            lastModifiedDate: "2013-02-22T12:31:18.000Z"
+                            name: "paul.mp3"
+                            size: 5042722
+                            type: "audio/mp3"
+                            webkitRelativePath: ""
+                   */
 				$('#filestable').append('<tr><th scope="row" class="spec">' + files[file][0] + '</th><td>' + files[file][1] + '</td><td class="end" ><div id="fidspan' + fid + '"></div><a href="" onclick="beginTransfer(\'' + files[file][0] + '\', ' + fid + ', ' + files[file][1] + '); return false;" id="fid' + fid + '">Transfer</a><a href="data:' + files[file][2] + ';base64," target="_blank" id="fidsave' + fid + '" style="display:none">Save to disk!</a></td></tr>');
 				fid++;
 			  };
@@ -186,29 +205,45 @@
 			if(chunk == 0){
 				$('#info').append("Begining Transfer..");
 			}
-
+            /**
+             fileholder =
+                 Array[4]
+                 0: "paul.mp3"
+                 1: 5042722
+                 2: "audio/mp3"
+                 3: Object
+                     lastModifiedDate: "2013-02-22T12:31:18.000Z"
+                     name: "paul.mp3"
+                     size: 5042722
+                     type: "audio/mp3"
+                     webkitRelativePath: ""
+            * */
 			fileholder= files[file];
-			fileo= files[file][3]; //ugly
-
+			fileo= files[file][3]; //ugly         //fileholder[3]
+            myfiles= files[file][3]; //ugly         //fileholder[3]
+            //console.log(myfiles);
 			start = chunk * chunksize;
 
 			if((parseInt(fileholder[1]) - 1) <= start + chunksize - 1){
 				stop = parseInt(fileholder[1]) - 1;
+                //start =    (chunk - 1) * chunksize; //added recently         no need when chunks number changed to chunks-1
 			}
 			else{
 				stop = start + chunksize - 1;
 			}
 
 			// If we use onloadend, we need to check the readyState.
+            // навешиваем обработчик на собатие которое еще не произщошло
 			reader.onloadend = function(evt) {
 			      if (evt.target.readyState == FileReader.DONE) { // DONE == 2
 			        var data = evt.target.result;
-			        	socket.emit('datatransfer', data, file, chunk);
+                    //console.log(data);
+			        socket.emit('datatransfer', data, file, chunk);
 			      }
 			};
 
-			if (fileo.webkitSlice) {
-			  var blob = fileo.webkitSlice(start, stop + 1);
+			if (fileo.slice) {
+			  var blob = fileo.slice(start, stop + 1);
 			} else if (fileo.mozSlice) {
 			  var blob = fileo.mozSlice(start, stop + 1);
 			}
@@ -217,22 +252,141 @@
 			}
 			
 			reader.readAsBinaryString(blob);
+            //reader.readAsDataURL(blob);
 			
 		});
 
 		socket.on('datatransfer', function(data, file, chunk){
+            //alert("datatransfer-");
+            console.log("dataTransfer " + " " + chunk);
 			f = downfiles[file];
-			f.data = f.data + data;
+            //console.log(data);
+            //data = decode64(data.split(',')[1]);
+			//f.data = f.data + data;
+
+
+            function onFsInit(fs){
+                fs.root.getFile(arrfile['name'], {create: true}, function(fileEntry) {
+                    //fileEntry.remove();
+                    fileEntry.createWriter(function(fileWriter) {
+                        fileWriter.onwriteend = function(e) {
+                            console.log('Partial write.' + chunk + " of " + f.chunks + " chunks completed");
+                            if(f.chunks == chunk){
+                                console.log("completed");
+                                window.location.href = fileEntry.toURL();
+                            }
+                        };
+
+                        fileWriter.onerror = function(e) {
+                            alert('Write failed: ' + e.toString());
+                        };
+
+                        //var bb = new BlobBuilder(); deprecated in favor of Blob
+                        //var arr = new Array();
+                        //arr.push("Lorem Ipsum");
+                        //arr.push(" Doloris");
+                        //var bb = new Blob([f.data],{type: arrfile['type']} );
+
+                        //var bb = new Blob([f.data],{type: arrfile['type']} );
+                        var bb = new Blob([data],{type: arrfile['type']} );
+                        //var bb = new Blob([data],{type: 'application/octet-stream'} );
+                        fileWriter.seek(fileWriter.length); // Start write position at EOF.
+                        fileWriter.write(bb);
+                        //saveAs(bb, "test.mp3");
+                    }, errorHandler);
+                }, errorHandler);
+            }
+            function errorHandler(e) {
+                var msg = '';
+
+                switch (e.code) {
+                    case FileError.QUOTA_EXCEEDED_ERR:
+                        msg = 'QUOTA_EXCEEDED_ERR';
+                        break;
+                    case FileError.NOT_FOUND_ERR:
+                        msg = 'NOT_FOUND_ERR';
+                        break;
+                    case FileError.SECURITY_ERR:
+                        msg = 'SECURITY_ERR';
+                        break;
+                    case FileError.INVALID_MODIFICATION_ERR:
+                        msg = 'INVALID_MODIFICATION_ERR';
+                        break;
+                    case FileError.INVALID_STATE_ERR:
+                        msg = 'INVALID_STATE_ERR';
+                        break;
+                    default:
+                        msg = 'Unknown Error';
+                        break;
+                };
+
+                alert('Error: ' + msg);
+            }
+
+
+            function fsInitErrorHandler(e){
+                alert('unsuccessfull init' + e.code);
+            }
+
+            window.requestFileSystem = window.requestFileSystem || window.webkitRequestFileSystem;
+            //if webkit
+            if (window.webkitStorageInfo !== 'undefined')
+                window.webkitStorageInfo.requestQuota(PERSISTENT, 1024*1024*800, function(grantedBytes) {
+                    window.requestFileSystem(window.PERSISTENT,grantedBytes, onFsInit, fsInitErrorHandler);
+                }, function(e) {
+                    console.log('Error', e.toString());
+                });
+            else  {
+                alert("Your browser doesn't support file api. Recently chrome is the only supported browser")
+            }
+
+
+
+            //конец загрузки
 			if(f.chunks == chunk){
+                /*var doc = window.document;
+                var save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a");
+                var click = function(node) {
+                    var event = doc.createEvent("MouseEvents");
+                    event.initMouseEvent(
+                            "click", true, false, window, 0, 0, 0, 0, 0
+                            , false, false, false, false, 0, null
+                    );
+                    return node.dispatchEvent(event); // false if event was cancelled
+                }*/
 				var fspan = "#fidspan" + f.fid;
 				$(fspan).html('');
 				$(fspan).hide();
 
 				var fsave = "#fidsave" + f.fid;
 				$(fsave).show();
+                /*var  get_URL = function() {
+                    return window.URL || window.webkitURL || window;
+                }
+                var blob = new Blob([f.data],{type: "application/octet-stream"} );
+                //alert(f.data.length + " " + blob.size);
+                var get_object_url = function() {
+                    var object_url = get_URL().createObjectURL(blob);
+                    //deletion_queue.push(object_url);
+                    return object_url;
+                }*/
+                //object_url = get_object_url(blob);
+
+                /*save_link.href = object_url;
+                save_link.download = 'tasty.mp3';
+                if (click(save_link)) {
+
+
+                    return;
+                }
+                */
+
+
+
+
+
 				$(fsave).attr('href', $(fsave).attr('href') + encode64(f.data));
 				$('#info').append("Transfer finished!");
-				
 			}
 			else{
 				var fspan = "#fidspan" + f.fid;
@@ -243,12 +397,13 @@
 		});
 			
 		function beginTransfer(file, fid, size){
+
 			var f = "#fidspan" + fid;
 			$(f).html('0%');
 			f = "#fid" + fid;
 			$(f).hide();
 
-			var chunks = size/chunksize;
+			var chunks = size/chunksize -1;
 			if(chunks% 1 != 0){
 				chunks = Math.floor(chunks) + 1;
 			}
@@ -279,9 +434,9 @@
 			for (var file in files) {
 			  if (files.hasOwnProperty(file)) {
 				$('#filestable').append('<tr><th scope="row" class="spec">' + files[file][0] + '</th><td>' + files[file][1] + '</td><td class="end"><b>Sharing!</b></td></tr>');
-			  };
+			  }
 			}
-		};
+		}
 
 		document.getElementById('files').addEventListener('change', handleFileSelect, false);
 
@@ -324,6 +479,48 @@
 
       return output;
    }
+
+        function decode64(input) {
+            var output = "";
+            var chr1, chr2, chr3 = "";
+            var enc1, enc2, enc3, enc4 = "";
+            var i = 0;
+
+            // remove all characters that are not A-Z, a-z, 0-9, +, /, or =
+            var base64test = /[^A-Za-z0-9\+\/\=]/g;
+            if (base64test.exec(input)) {
+                alert("There were invalid base64 characters in the input text.\n" +
+                        "Valid base64 characters are A-Z, a-z, 0-9, '+', '/',and '='\n" +
+                        "Expect errors in decoding.");
+            }
+            input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
+
+            do {
+                enc1 = keyStr.indexOf(input.charAt(i++));
+                enc2 = keyStr.indexOf(input.charAt(i++));
+                enc3 = keyStr.indexOf(input.charAt(i++));
+                enc4 = keyStr.indexOf(input.charAt(i++));
+
+                chr1 = (enc1 << 2) | (enc2 >> 4);
+                chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+                chr3 = ((enc3 & 3) << 6) | enc4;
+
+                output = output + String.fromCharCode(chr1);
+
+                if (enc3 != 64) {
+                    output = output + String.fromCharCode(chr2);
+                }
+                if (enc4 != 64) {
+                    output = output + String.fromCharCode(chr3);
+                }
+
+                chr1 = chr2 = chr3 = "";
+                enc1 = enc2 = enc3 = enc4 = "";
+
+            } while (i < input.length);
+
+            return unescape(output);
+        }
    </script>
 
     </body>

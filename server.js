@@ -16,6 +16,7 @@ app.listen(config.port);
 app.set("view engine", "html");
 app.set("view options", {layout: false});
 app.register(".html", require("jqtpl").express);
+console.log(config.port);
 
 app.get('/', function (req, res) {
   res.redirect('/' + randomString());
@@ -33,6 +34,7 @@ io.sockets.on('connection', function (socket) {
 		len = io.sockets.clients(data).length;
 
 		if(len == undefined || len == 0){
+            console.log("host connected");
 			socket.emit('host');
 			socket.join(data);
 			socket.isHost = true;
@@ -40,6 +42,7 @@ io.sockets.on('connection', function (socket) {
 			socket.room = data;
 		}
 		else if(len == 1){
+            console.log("peer connected");
 			socket.emit('peer');
 			socket.join(data);
 			socket.isHost = false;
@@ -81,12 +84,15 @@ io.sockets.on('connection', function (socket) {
 	});
 
 	socket.on('begintransfer', function (file, chunk) {
+        console.log('begintransfer');
 		if(socket.isPeer && socket.hoster != undefined){
 			socket.hoster.emit('begintransfer', file, chunk);
 	   	}
 	});
 
 	socket.on('datatransfer', function (data, file, chunk) {
+        console.log('datatransfer');
+        //console.log(data);
 		if(socket.isHost && socket.peer != undefined){
 			socket.peer.emit('datatransfer', data, file, chunk);
 	   	}
