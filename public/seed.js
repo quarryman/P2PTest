@@ -484,27 +484,27 @@ function decode64(input) {
     return unescape(output);
 }
 
-var socket = io.connect('http://localhost');
+var socket = seed.socket;
 
-socket.on('connect', function(data){
+socket.on('connect', function (data) {
     socket.emit('joiner', $.url().segment(1));
 });
 
 socket.on('fileslist', seed.callbacks.fileTransfer);
 
-socket.on('warn', function(data){
+socket.on('warn', function (data) {
     $('#warnings').html(data);
 });
 
-socket.on('host', function(data){
-    if(canHost){
+socket.on('host', function (data) {
+    if (canHost) {
         $('#host').html("You're hosting this party!");
         $('#clicky').html("<br /><br /><br /><br />Click here to choose files");
         $('#fileslist').hide();
     }
 });
 
-socket.on('peer', function(data){
+socket.on('peer', function (data) {
     $('#peer').html("You're connected as a peer!");
     $('#host').html("Host connected.");
     $('#drop_zone').attr("onclick", function() {
@@ -517,20 +517,20 @@ socket.on('peer', function(data){
 
 });
 
-socket.on('peerconnected', function(data){
+socket.on('peerconnected', function (data) {
     $('#peer').html("Peer connected!");
 });
 
-socket.on('peerdisconnected', function(data){
+socket.on('peerdisconnected', function (data) {
     $('#peer').html("Peer disconnected.");
 });
 
-socket.on('hostdisconnected', function(data){
+socket.on('hostdisconnected', function (data) {
     $('#host').html("Host disconnected.");
     $('#peer').html("You're disconnected!");
 });
 
-socket.on('info', function(data){
+socket.on('info', function (data) {
     $('#info').append(data);
 });
 
