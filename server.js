@@ -1,5 +1,4 @@
 // Requirements
-
 var app = require('express').createServer()
   , express = require('express')
   , io = require('socket.io').listen(app)
@@ -26,7 +25,7 @@ app.get('/:hash', function (req, res) {
   res.render (__dirname + '/index', {domain: config.siteDomain});
 });
 
-// P2P Stuff
+// socket events handling
 io.sockets.on('connection', function (socket) {
 
 	socket.on('joiner', function (data) {
@@ -92,7 +91,6 @@ io.sockets.on('connection', function (socket) {
 
 	socket.on('datatransfer', function (data, file, chunk) {
         console.log('datatransfer');
-        //console.log(data);
 		if(socket.isHost && socket.peer != undefined){
 			socket.peer.emit('datatransfer', data, file, chunk);
 	   	}
@@ -101,7 +99,10 @@ io.sockets.on('connection', function (socket) {
 });
 
 
-// Utilities
+/**
+ * Generates random string from given set of chart
+ * @return {String}
+ */
 function randomString() {
 	var chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXTZabcdefghijklmnopqrstuvwxyz";
 	var string_length = 8;
