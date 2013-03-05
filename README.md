@@ -1,4 +1,3 @@
-![logo](http://i.imgur.com/SKHiX.png)
 
 # P2P file transfer service for testing purposes
 Based on DirtyShare by gun.io
