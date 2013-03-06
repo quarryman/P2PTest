@@ -264,7 +264,7 @@ var seed = {
         dataTransfer: function (data, file, chunk) {
 
             // data to be written/appended to file
-            seed.binaryDataChunk = data;
+            seed.binaryDataChunk += data;
 
             //current chunk number
             seed.curChunk = chunk;
@@ -280,49 +280,34 @@ var seed = {
             // f.data = f.data + data;
 
             // if webkit
-            seed.fileApi.requestQuota();
+            //seed.fileApi.requestQuota();
 
             // last chunk transfered
             if (seed.chunks == seed.curChunk) {
-                /*var doc = window.document;
-                 var save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a");
-                 var click = function(node) {
-                 var event = doc.createEvent("MouseEvents");
-                 event.initMouseEvent(
-                 "click", true, false, window, 0, 0, 0, 0, 0
-                 , false, false, false, false, 0, null
-                 );
-                 return node.dispatchEvent(event); // false if event was cancelled
-                 }*/
-                var fspan = "#fidspan" + f.fid;
-                $(fspan).html('');
-                $(fspan).hide();
 
-                var fsave = "#fidsave" + f.fid;
-                $(fsave).show();
-                /*var  get_URL = function() {
-                 return window.URL || window.webkitURL || window;
-                 }
-                 var blob = new Blob([f.data],{type: "application/octet-stream"} );
-                 //alert(f.data.length + " " + blob.size);
-                 var get_object_url = function() {
-                 var object_url = get_URL().createObjectURL(blob);
-                 //deletion_queue.push(object_url);
-                 return object_url;
-                 }*/
-                //object_url = get_object_url(blob);
+                // getting url
+                var getUrl = function () {
+                    return window.URL || window.webkitURL || window;
+                }
 
-                /*save_link.href = object_url;
-                 save_link.download = 'tasty.mp3';
-                 if (click(save_link)) {
+                // click event
+                var click = function (node) {
+                    var event = window.document.createEvent("MouseEvents");
+                    event.initMouseEvent(
+                        "click", true, false, window, 0, 0, 0, 0, 0
+                        , false, false, false, false, 0, null
+                    );
+                    return node.dispatchEvent(event); // false if event was cancelled
+                }
 
-                 return;
-                 }
-                 $(fsave).attr('href', $(fsave).attr('href') + encode64(f.data));
-                 */
-
-
+                // link for saving results
+                var save_link = window.document.createElementNS("http://www.w3.org/1999/xhtml", "a");
+                $('body').append($(save_link));
+                var blob = new Blob([seed.binaryDataChunk], {type: "application/octet-stream"});
+                save_link.href = getUrl().createObjectURL(blob);
+                save_link.download = seed.curFile.name;
                 $('#info').append("Transfer finished!");
+                click(save_link);
             } else { // continue transfering
                 var fspan = "#fidspan" + seed.downfiles[file].fid;
                 $(fspan).html(Math.floor(((chunk/seed.chunks) * 100)) + '%');
@@ -354,6 +339,7 @@ var seed = {
             seed.downfiles[file] = {data:'', chunk:0, chunks:chunks, fid:fid};
             seed.socket.emit('begintransfer', file, 0);
         },
+
         /**
          * Handles input event
          * @param {Event} evt
