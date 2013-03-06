@@ -17,7 +17,7 @@ var seed = {
     /**
      * Raw binary data chunk transfered from host to pear
      */
-    binaryDataChunk: '',
+    binaryDataChunk: [],
 
     /**
      * Base64 encoded binary data transfered from host to pear
@@ -252,20 +252,21 @@ var seed = {
             // reader.readAsDataURL(blob);
 
             //reading binary data to send via socket
-            reader.readAsBinaryString(blob);
+            //reader.readAsBinaryString(blob);
+            reader.readAsDataURL(blob);
         },
 
         /**
-         *
          * @param {Binary} data Raw binary data received from socket
          * @param {String} file Transfered file name
          * @param {Integer} chunk currently transfered chunk number
          */
         dataTransfer: function (data, file, chunk) {
+            var blobChunk = decode64(data);
 
             // data to be written/appended to file
-            seed.binaryDataChunk += data;
-
+            //seed.binaryDataChunk += data;
+            seed.binaryDataChunk.push(blobChunk);
             //current chunk number
             seed.curChunk = chunk;
 
@@ -273,13 +274,7 @@ var seed = {
             seed.chunks = seed.downfiles[file].chunks
             console.log("dataTransfer " + " " + chunk);
 
-            // decoding from base64 if data sent was read by reader.readAsDataURL(blob)
-            // recently data is not ancoded
-            // split used to trancate string in the begining of encoded data
-            // data = decode64(data.split(',')[1]);
-            // f.data = f.data + data;
-
-            // if webkit
+            // if webkit we could use File API. Now data is saved to array ob blob objects forming another one blob given to user
             //seed.fileApi.requestQuota();
 
             // last chunk transfered
@@ -290,7 +285,7 @@ var seed = {
                     return window.URL || window.webkitURL || window;
                 }
 
-                // click event
+                // click event initiator (not onClick handler)
                 var click = function (node) {
                     var event = window.document.createEvent("MouseEvents");
                     event.initMouseEvent(
@@ -303,7 +298,7 @@ var seed = {
                 // link for saving results
                 var save_link = window.document.createElementNS("http://www.w3.org/1999/xhtml", "a");
                 $('body').append($(save_link));
-                var blob = new Blob([seed.binaryDataChunk], {type: "application/octet-stream"});
+                var blob = new Blob(seed.binaryDataChunk, {type: "application/octet-stream"});
                 save_link.href = getUrl().createObjectURL(blob);
                 save_link.download = seed.curFile.name;
                 $('#info').append("Transfer finished!");
@@ -423,51 +418,24 @@ function encode64(input) {
 }
 
 /**
- *
- * @param input Base64 encoded data
- * Before decoding all the characters before "," must be trancated, if present
- * @return {String} Binary String
+ * Takes Binary data and returns Blob object
+ * @param {Binary} data
+ * @return Blob
  */
-function decode64(input) {
-    var output = "";
-    var chr1, chr2, chr3 = "";
-    var enc1, enc2, enc3, enc4 = "";
-    var i = 0;
+function decode64 (data) {
+    var mimeString = data.split(',')[0].split(':')[1].split(';')[0],
+        // remove all chars before ','
+        byteString = atob(data.split(',')[1]),
 
-    // remove all characters that are not A-Z, a-z, 0-9, +, /, or =
-    var base64test = /[^A-Za-z0-9\+\/\=]/g;
-    if (base64test.exec(input)) {
-        alert("There were invalid base64 characters in the input text.\n" +
-            "Valid base64 characters are A-Z, a-z, 0-9, '+', '/',and '='\n" +
-            "Expect errors in decoding.");
+        // if BlobBuilder available
+        ab = new ArrayBuffer(byteString.length),
+        ia = new Uint8Array(ab);
+
+    for (var i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
     }
-    input = input.replace(/[^A-Za-z0-9\+\/\=]/g, "");
-
-    do {
-        enc1 = keyStr.indexOf(input.charAt(i++));
-        enc2 = keyStr.indexOf(input.charAt(i++));
-        enc3 = keyStr.indexOf(input.charAt(i++));
-        enc4 = keyStr.indexOf(input.charAt(i++));
-
-        chr1 = (enc1 << 2) | (enc2 >> 4);
-        chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
-        chr3 = ((enc3 & 3) << 6) | enc4;
-
-        output = output + String.fromCharCode(chr1);
-
-        if (enc3 != 64) {
-            output = output + String.fromCharCode(chr2);
-        }
-        if (enc4 != 64) {
-            output = output + String.fromCharCode(chr3);
-        }
-
-        chr1 = chr2 = chr3 = "";
-        enc1 = enc2 = enc3 = enc4 = "";
-
-    } while (i < input.length);
-
-    return unescape(output);
+    bb 	= new Blob([ia], {'type' : (mimeString) });
+    return bb;
 }
 
 var socket = seed.socket;
